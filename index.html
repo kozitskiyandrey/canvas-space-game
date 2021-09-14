@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Game Cosmos</title>
+	<link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+	<div id="game">
+		<div id="control">
+			<div class="control-panel">
+				<button data-role="start">start</button>
+				<button data-role="pause">pause/play</button>
+				<button data-role="stop">stop</button>
+			</div>
+			<div class="info-panel">
+				<div class="info-block">
+					Level: <span id="level">1</span>
+				</div>
+				<div class="info-block">
+					Hits: <span id="hits">0</span>
+				</div>
+				<div class="info-block">
+					Score: <span id="score">0</span>
+				</div>
+			</div>
+		</div>
+		<canvas id="canvas"></canvas>
+	</div>
+</body>
+<script type="text/javascript">
+	
+	if ( !window.requestAnimationFrame ) {
+
+	    window.requestAnimationFrame = ( function() {
+
+	        return window.webkitRequestAnimationFrame ||
+	        	window.mozRequestAnimationFrame ||
+	        	window.oRequestAnimationFrame ||
+	        	window.msRequestAnimationFrame ||
+	        	function(callback) {
+
+	            	window.setTimeout( callback, 1000 / 60 );
+
+	        	};
+
+	    } )();
+
+	}
+
+	var imagesObj = {};
+
+	var images = [
+		{
+			name: 'bg',
+			src: './img/bg.jpg',
+			width: 468,
+			height: 354,
+		},
+		{
+			name: 'player',
+			src: './img/ship.png',
+			width: 80,
+			height: 55,
+		},
+		{
+			name: 'enemy1',
+			src: './img/enemy1.png',
+			width: 38,
+			height: 55,
+		},
+		{
+			name: 'enemy2',
+			src: './img/enemy2.png',
+			width: 50,
+			height: 41,
+		},
+		{
+			name: 'enemy3',
+			src: './img/enemy3.png',
+			width: 53,
+			height: 43,
+		},
+		{
+			name: 'enemy4',
+			src: './img/enemy4.png',
+			width: 55,
+			height: 35,
+		},
+		{
+			name: 'enemy5',
+			src: './img/enemy5.png',
+			width: 75,
+			height: 45,
+		},
+		{
+			name: 'enemy6',
+			src: './img/enemy2.png',
+			width: 69,
+			height: 64,
+		},
+		{
+			name: 'enemy7',
+			src: './img/enemy7.png',
+			width: 95,
+			height: 61,
+		},
+		{
+			name: 'enemy8',
+			src: './img/enemy8.png',
+			width: 91,
+			height: 66,
+		},
+		{
+			name: 'enemy9',
+			src: './img/enemy9.png',
+			width: 160,
+			height: 115,
+		},
+	];
+
+	function imagesPreload () {
+		var j = 0;
+		for (var i = 0; i < images.length; i++) {
+
+			var img = new Image();
+			img.src = images[i].src;
+			img.width = images[i].width;
+			img.height = images[i].height;
+			imagesObj[images[i].name] = img;
+			img.onload = function () {
+				j++;
+				if(images.length == j) init('game');;
+			}
+		};
+	}
+
+	imagesPreload();
+
+	function init (ID) {
+		
+		var game = document.getElementById(ID);
+		if(!game){
+			console.error('Element with id="'+ID+'" not found');
+			return false;
+		}
+
+		var canvas = game.getElementsByTagName('canvas'), control = game.querySelector('#control'), levelEl = game.querySelector('#level'), hitsEl = game.querySelector('#hits'), scoreEl = game.querySelector('#score'), startBtn = control.querySelector('[data-role="start"]'), stopBtn = control.querySelector('[data-role="stop"]'), pauseBtn = control.querySelector('[data-role="pause"]'), controlH, ctx, clientWidth, clientHeight, isPlay = false, canvasW, canvasH, bgX = 0, speed = 3, fireBtnPressed = false, btnMoveShipPressed = false, padding = 5, shipX = padding, shipY = padding, shipDirection, bg = imagesObj.bg, player = imagesObj.player, fired = false, fireBalls = [], fireBallR = 5, fireBallSpeed = 10, startEnemies = false, enemyInterval = 1000, enemies = [], enemiesTypes = [], level = 1, enemiesDestroy = 0, toNextLevel = 10, isShowLevel = false, pause = false, timers = [],
+			statistic = {
+				hits: 0,
+				score: 0,
+				status: 'Game Over'
+			};
+
+
+		var enemiesOption = {
+			1:{
+				name: 'enemy1',
+				speed: 2,
+			    health: 1,
+			    score: 1,
+			    interval: 1700,
+			    access: true,
+			    img: imagesObj['enemy1'],
+			},
+			2:{
+				name: 'enemy2',
+				speed:4,
+			    health: 1,
+			    score: 3,
+			    interval: 2000,
+			    access: true,
+			    img: imagesObj['enemy2']
+			},
+			3:{
+				name: 'enemy3',
+				speed:2,
+			    health: 3,
+			    score: 4,
+			    interval: 2600,
+			    access: true,
+			    img: imagesObj['enemy3'],
+			},
+			4:{
+				name: 'enemy4',
+				speed:7,
+			    health: 1,
+			    score: 10,
+			    interval: 3500,
+			    access: true,
+			    img: imagesObj['enemy4']
+			},
+			5:{
+				name: 'enemy5',
+				speed:2,
+			    health: 1,
+			    score: 1,
+			    interval: 4000,
+			    access: true,
+			    img: imagesObj['enemy5'],
+			    moveF: function (x,y,h) {
+			    	var y1 =  Math.round(Math.sin(canvasW-x/100)*5);
+			    	if( y+y1 + h >= canvasH || y+y1 <=0 ) return 0;
+			    	return y1;
+			  	}
+			},
+			6:{
+				name: 'enemy6',
+				speed:1,
+			    health: 5,
+			    score: 6,
+			    interval: 4300,
+			    access: true,
+			    img: imagesObj['enemy6']
+			},
+			7:{
+				name: 'enemy7',
+				speed:-1,
+			    health: 7,
+			    score: 10,
+			    interval: 4700,
+			    access: true,
+			    img: imagesObj['enemy7']
+			},
+			8:{
+				name: 'enemy8',
+				speed:-5,
+			    health: 10,
+			    score: 8,
+			    interval: 5000,
+			    access: true,
+			    img: imagesObj['enemy8']
+			},
+			9:{
+				name: 'enemy9',
+				speed:-10,
+			    health: 15,
+			    score: 15,
+			    interval: 10000,
+			    access: true,
+			    img: imagesObj['enemy9'],
+			    moveF: function (x,y,h) {
+			    	var y1 =  Math.round(Math.sin(canvasW-x/100)*5);
+			    	if( y+y1 + h >= canvasH || y+y1 <=0 ) return 0;
+			    	return y1;
+			  	}
+			},
+		}
+
+		if(! (canvas && canvas[0]) ){
+			console.error('Element with id="'+canvasID+'" not found');
+			return false;
+		}else{
+			canvas = canvas[0];
+		}
+
+		if(!canvas.getContext){
+			console.error('Canvas not supported');
+			return false;
+		}
+
+		ctx = canvas.getContext('2d');
+
+		clientWidth = document.documentElement.clientWidth;
+		clientHeight = document.documentElement.clientHeight;
+
+		controlH = (control && control.clientHeight) ? control.clientHeight : 0;
+		
+		canvasW = clientWidth;
+		canvasH = clientHeight-controlH;
+
+		canvas.width = canvasW;
+		canvas.height = canvasH;
+
+		initGame();
+
+		function initGame () {
+			drawBg();
+			drawPlayer();
+			if(startBtn) startBtn.addEventListener('click', startGame, false);
+			if(stopBtn) stopBtn.addEventListener('click', stopGame, false);
+			if(pauseBtn) pauseBtn.addEventListener('click', pauseGame, false);
+		}
+
+		function startGame () {
+			if(pause) return false;
+			if(isPlay) return false;
+			isPlay = true;
+			startEnemies = true;
+			document.addEventListener('keydown', startAction, false);
+			document.addEventListener('keyup', stopAction, false);
+			resetAccess();
+			createEnemyLoop();
+			enemiesTypes.push(enemiesOption[level]);
+			requestAnimationFrame(loop);
+		}
+
+		function stopGame () {
+			if(!isPlay) return false;
+			gameOver();
+			document.removeEventListener('keydown', startAction, false);
+			document.removeEventListener('keyup', stopAction, false);
+		}
+
+		function pauseGame () {
+			if(pause){
+				if(isPlay) return false;
+				pause = false;
+				isPlay = true;
+				startEnemies = true;
+				statistic.status = 'Game Over';
+				document.addEventListener('keydown', startAction, false);
+				document.addEventListener('keyup', stopAction, false);
+				resetAccess();
+				createEnemyLoop();
+				requestAnimationFrame(loop);
+			}else{
+				if(!isPlay) return false;
+				pause = true;
+				statistic.status = 'Pause';
+				isPlay = false;
+				startEnemy = false;
+				setTimeout(function () {
+					showEndStatistic();
+				},0);
+				timersReset();
+				document.removeEventListener('keydown', startAction, false);
+				document.removeEventListener('keyup', stopAction, false);
+			}
+		}
+
+		function reset () {
+			timers = [];
+			isPlay = false;
+			bgX = 0;
+			speed = 3;
+			fireBtnPressed = false;
+			btnMoveShipPressed = false;
+			shipX = padding;
+			shipY = padding;
+			shipDirection,
+			fired = false,
+			fireBalls = [],
+			fireBallSpeed = 10,
+			startEnemies = false,
+			enemyInterval = 1000,
+			enemies = [],
+			enemiesTypes = [],
+			level = 1,
+			enemiesDestroy = 0,
+			toNextLevel = 10,
+			isShowLevel = false,
+			pause = false;
+			statistic = {
+				hits: 0,
+				score: 0,
+				status: 'Game Over'
+			};
+			if(levelEl) levelEl.innerHTML = level;
+			updateStatistic();
+			timersReset();
+			resetAccess();
+		}
+
+		function timersReset (argument) {
+			for (var i = 0; i < timers.length; i++) {
+				clearInterval(timers[i]);
+			};
+			timers = [];
+		}
+
+		function loop () {
+			if(isPlay){
+				ctx.clearRect(0, 0, canvasW, canvasH);
+				drawBg();
+				drawPlayer();
+				if(fireBtnPressed) fire();
+				if(fireBalls.length) moveFireBalls();
+				if(enemies.length) moveEnemies();
+				if(isShowLevel) showLevel();
+				requestAnimationFrame(loop);
+			}
+		}
+
+		function gameOver() {
+			isPlay = false;
+			startEnemy = false;
+			timersReset();
+			setTimeout(function () {
+				showEndStatistic();
+				reset();
+			},0);
+		}
+
+		function showEndStatistic () {
+			
+			var x = canvasW/2;
+			var y = canvasH/2;
+
+			ctx.save();
+
+			ctx.fillStyle = "rgba(0,0,0,0.8)";
+			ctx.rect(0,0,canvasW,canvasH);
+			ctx.fill();
+
+			ctx.fillStyle = "#ccc";
+			ctx.font = 'bold 26px Arial';
+			ctx.textAlign = 'center';
+			ctx.textBaseline = 'bottom';
+			ctx.fillText(statistic.status, x, y-26 );
+
+			ctx.fillStyle = "#fff";
+			ctx.font = '16px Arial';
+			ctx.textAlign = 'center';
+			ctx.textBaseline = 'middle';
+			ctx.fillText('hits: '+statistic.hits, x, y );
+			ctx.textBaseline = 'top';
+			ctx.fillText('score: '+statistic.score, x, y+18 );
+			ctx.restore();
+		}
+
+		function moveEnemies () {
+			var i = 0, l = enemies.length;
+			for ( i; i < l; i++) {
+				if(enemies[i]){ 
+					var enemy = enemies[i];
+					enemy.X -= enemy.speed;
+					if(enemy.moveF) enemy.Y += enemy.moveF(enemy.X, enemy.Y, enemy.H);
+
+					drawEnemy(enemy);
+
+					if(enemy.X + enemy.W <= 0){
+						removeEnemy(i);
+						i--;
+					} 
+
+					if(
+						(   
+							(shipX + player.width >= enemy.X  && shipX + player.width <= enemy.X + enemy.W ) ||
+							(shipX >= enemy.X  && shipX <= enemy.X + enemy.W ) 
+						) &&
+						(
+							(shipY + player.height >= enemy.Y  && shipY + player.height  <= enemy.Y + enemy.H ) ||
+							(shipY >= enemy.Y && shipY <= enemy.Y + enemy.H )
+						)	
+					){
+						gameOver();
+					}			
+				}
+			};
+		}
+
+		function boom (x,y,w,h) {
+			var el = document.createElement('div');
+			el.className = 'boom';
+			el.style.width = w + 'px';
+			el.style.height = h + 'px';
+			el.style.left = x + 'px';
+			el.style.top = y + controlH + 'px';
+			game.appendChild(el);
+
+			setTimeout(function () {
+				game.removeChild(el);
+			},500);
+		}
+
+		function showLevel () {
+			var x = canvasW/2;
+			var y = canvasH/2;
+
+			ctx.save();
+
+			ctx.fillStyle = "rgba(0,0,0,0.8)";
+			ctx.rect(0,0,canvasW,canvasH);
+			ctx.fill();
+
+			ctx.fillStyle = "#ccc";
+			ctx.font = 'bold 26px Arial';
+			ctx.textAlign = 'center';
+			ctx.textBaseline = 'middle';
+			ctx.fillText('level ' + level + ' from 9', x, y );
+			ctx.restore();
+		}
+
+		function nextLevel () {
+			startEnemies = false;
+			timersReset();
+			resetAccess();
+			level += 1;
+			toNextLevel += (level * 5);
+
+			var timer = setInterval(function () {
+				if(!enemies.length){
+					clearInterval(timer);
+					if(level>9){
+						statistic.status = 'You Win!';
+						gameOver();
+					}else{
+						if(levelEl) levelEl.innerHTML = level;
+						enemiesTypes.push(enemiesOption[level]);
+						isShowLevel = true;
+						setTimeout(function () {
+							if(level%3==0) speed +=3;
+							isShowLevel = false;
+							startEnemies = true;
+							createEnemyLoop();
+						},5000);
+					}
+				}
+			},2000)
+			
+		}
+
+		function updateStatistic () {
+			if(hitsEl) hitsEl.innerHTML = statistic.hits;
+			if(scoreEl) scoreEl.innerHTML = statistic.score;
+		}
+
+		function isHit (ball) {
+			for (var i = 0, l = enemies.length; i < l; i++) {
+
+				if(ball.X + fireBallR >= enemies[i].X && ball.X - fireBallR <= enemies[i].X + enemies[i].W && ball.Y + fireBallR >= enemies[i].Y  && ball.Y - fireBallR  <= enemies[i].Y + enemies[i].H ) {
+
+					enemies[i].health -= 1;
+
+					if(enemies[i].health <=0){
+						statistic.hits += 1;
+						statistic.score += enemies[i].score;
+						enemiesDestroy += 1;
+						boom(enemies[i].X, enemies[i].Y, enemies[i].W, enemies[i].H);
+						removeEnemy(i);
+						updateStatistic();
+						if(enemiesDestroy >= toNextLevel) nextLevel();
+					}
+					
+					return true;
+				}			
+			};
+			return false;
+		}
+
+		function moveFireBalls () {
+			var i = 0, l = fireBalls.length;
+			for ( i; i < l; i++) {
+				if(fireBalls[i]){ 
+					moveFireBall(fireBalls[i]);
+					if(isHit(fireBalls[i]) || ballLeaveMap(fireBalls[i])){ 
+						removeBall (i);
+						i--;
+					}
+				}
+			};
+		}
+
+		function drawEnemy (enemy) {
+			ctx.drawImage(enemy.img, 0, 0, enemy.img.width, enemy.img.height, enemy.X, enemy.Y, enemy.img.width, enemy.img.height);
+		}
+
+		function removeEnemy (index) {
+			enemies.splice(index,1);
+		}
+
+		function Enemy (enemyOp) {
+			this.img = enemyOp.img;
+			this.X = canvasW;
+			this.Y = Math.floor(randomInteger(padding + player.height/2, canvasH - padding -enemyOp.img.height));
+			this.speed = enemyOp.speed + speed;
+			this.W = enemyOp.img.width;
+			this.H = enemyOp.img.height;
+			this.health = enemyOp.health;
+			this.score = enemyOp.score;
+			this.moveF = (typeof enemyOp.moveF == 'function') ? enemyOp.moveF : false;
+		}
+
+		function createEnemy (type) {
+			var t = setTimeout(function () {
+				
+				enemies.push(new Enemy(type));
+
+				type.access = true;
+			}, type.interval);
+			timers.push(t);
+		}
+
+		function createEnemyLoop() {
+			if(startEnemies){
+				
+			var t =	setTimeout(function () {
+					var i = 0; l = enemiesTypes.length;
+					for( i; i < l; i++){
+						if(enemiesTypes[i].access){
+							enemiesTypes[i].access = false;
+							createEnemy(enemiesTypes[i]);
+						}
+					}
+
+					createEnemyLoop();
+				}, enemyInterval);
+			};
+			timers.push(t);
+		}
+
+		function resetAccess(){
+			var i = 0; l = enemiesTypes.length;
+			for( i; i < l; i++){
+				enemiesTypes[i].access = true;
+			}
+			for( var j in enemiesOption){
+				enemiesOption[j].access = true;
+			}
+		}
+
+		function removeBall (index) {
+			fireBalls.splice(index,1);
+		}
+
+		function ballLeaveMap (ball) {
+			if(ball.X > canvasW) return true;
+			return false;
+		}
+
+		function moveFireBall (ball) {
+			ball.X += fireBallSpeed;
+			ctx.save();
+			ctx.fillStyle = '#ccc';
+			ctx.beginPath();
+			ctx.arc(ball.X, ball.Y, fireBallR, 0, Math.PI * 2, true);
+			ctx.closePath();
+  			ctx.fill();
+			ctx.restore();
+		}
+		
+		function createFireBall () {
+			this.X = shipX + player.width;
+			this.Y = shipY + player.height/2;
+		}
+
+		function fire () {
+			if(fired) return false;
+			fired = true;
+		
+			var ball = new createFireBall();
+			fireBalls.push(ball);
+
+			setTimeout(function () {
+				fired = false;
+			},300);
+		}
+
+		function drawPlayer () {
+			var bottom = canvasH - padding - player.height;
+			var right = canvasW - padding - player.width;
+			if(btnMoveShipPressed){
+
+				switch(shipDirection){
+					case 'up':
+						shipY -= 5;
+						if(shipY <= padding) shipY = padding;
+						break;
+					case 'down':
+						shipY += 5;
+						if(shipY >= bottom) shipY = bottom;
+						break;
+					case 'left':
+						shipX -= 5;
+						if(shipX <= padding) shipX = padding;
+						break;
+					case 'right':
+						shipX += 5;
+						if(shipX >= right) shipX = right;
+						break;
+				}
+			}
+			ctx.drawImage(player, 0, 0, player.width, player.height, shipX, shipY, player.width, player.height);
+		}
+
+		function startAction (e) {
+			var charCode = getCharCode(e);
+
+			if(charCode == 40 || charCode == 38 || charCode == 37 || charCode == 39){
+				e.preventDefault(); 
+				if(btnMoveShipPressed) return false;
+				switch(charCode){
+					case 37: shipDirection = 'left'; break;
+					case 38: shipDirection = 'up'; break;
+					case 39: shipDirection = 'right'; break;
+					case 40: shipDirection = 'down'; break;
+				}
+				
+				btnMoveShipPressed = true;
+			}
+
+			if(charCode == 32){
+				e.preventDefault();
+				if(fireBtnPressed) return false;
+				fireBtnPressed = true;
+			}
+		}
+
+		function stopAction (e) {
+			var charCode = getCharCode(e);
+			if(charCode == 40 || charCode == 38 || charCode == 37 || charCode == 39){
+				e.preventDefault();
+				btnMoveShipPressed = false;
+			}
+
+			if(charCode == 32){
+				e.preventDefault();
+				fireBtnPressed = false;
+			}
+		}
+
+		function drawBg () {
+			bgX -= speed;
+			if(bgX+bg.width <= 0) bgX = 0;
+			x = bgX;
+			var y=0;
+			
+			do{
+				do{
+					ctx.drawImage(bg, 0, 0, bg.width, bg.height, x, y, bg.width, bg.height);
+					y += bg.height;
+				}while(y < canvasH);
+
+				y = 0;
+				x += bg.width;
+
+			}while(x < canvasW);
+		}
+
+		function getCharCode(event) {
+			if (event.which == null) {
+				if (event.keyCode < 32) return null;
+			  	return event.keyCode;
+			}
+
+			if (event.which != 0) {
+			  	if (event.which < 32) return null;
+			  	return event.which;
+			}
+
+			return null;
+		}
+
+		function randomInteger(min, max) {
+		    var rand = min - 0.5 + Math.random() * (max - min + 1);
+		    rand = Math.round(rand);
+		    return rand;
+		}
+	}
+
+</script>
+</html>

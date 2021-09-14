@@ -1,0 +1,37 @@
+body,canvas{margin: 0}
+canvas{
+	display: block;
+}
+#game{
+	position: relative;
+	overflow: hidden;
+}
+.boom{
+	position: absolute;
+	z-index: 13;
+	background-image: url(img/boom.jpg);
+	background-size: 100% 100%;
+}
+#control{
+	padding: 5px;
+    background-color: #383838;
+    color: #ccc;
+    overflow: hidden;
+}
+.control-panel{
+	float: left;
+}
+.info-panel{float: right;padding-top: 5px;}
+.info-block{
+	display: inline-block;
+	margin: 5px 15px;
+}
+.control-panel button{
+	margin: 3px 15px;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 16px;
+    color: #E2E2E2;
+    background-color: #171717;
+    cursor: pointer;
+}
